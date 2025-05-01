@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=0.9">
+  <meta name="viewport" content="width=device-width, initial-scale=0.8">
   <title>Tedpole Music</title>
   <script src="https://unpkg.com/howler@2.2.3/dist/howler.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -714,14 +714,21 @@
       right: 0;
       bottom: 0;
       background-color: rgba(0, 0, 0, 0.7);
-      display: none;
+      display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.3s ease, visibility 0s linear 0.3s;
     }
 
     .auth-modal.show {
-      display: flex;
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition: opacity 0.3s ease, visibility 0s linear 0s;
     }
 
     .auth-content {
@@ -860,6 +867,11 @@
       font-size: 16px;
       cursor: pointer;
       margin-top: 10px;
+    }
+
+    .auth-submit:disabled {
+      background-color: #666;
+      cursor: not-allowed;
     }
 
     .auth-footer {
@@ -1128,10 +1140,10 @@
 
   <!-- Login Modal -->
   <div id="login-modal" class="auth-modal">
-    <div class="auth-content">
+    <div class="auth-content" role="dialog" aria-modal="true" aria-labelledby="login-title">
       <div class="auth-header">
-        <h2>Log in to Tedpole Music</h2>
-        <button class="close-modal"><i class="fas fa-times"></i></button>
+        <h2 id="login-title">Log in to Tedpole Music</h2>
+        <button class="close-modal" aria-label="Close"><i class="fas fa-times"></i></button>
       </div>
       <div class="auth-social">
         <button type="button" class="social-btn google"><i class="fab fa-google"></i> Continue with Google</button>
@@ -1160,10 +1172,10 @@
 
   <!-- Signup Modal -->
   <div id="signup-modal" class="auth-modal">
-    <div class="auth-content">
+    <div class="auth-content" role="dialog" aria-modal="true" aria-labelledby="signup-title">
       <div class="auth-header">
-        <h2>Sign up for Tedpole Music</h2>
-        <button class="close-modal"><i class="fas fa-times"></i></button>
+        <h2 id="signup-title">Sign up for Tedpole Music</h2>
+        <button class="close-modal" aria-label="Close"><i class="fas fa-times"></i></button>
       </div>
       <div class="auth-social">
         <button type="button" class="social-btn google"><i class="fab fa-google"></i> Continue with Google</button>
@@ -1187,6 +1199,7 @@
         <div class="form-group">
           <label>Confirm Password</label>
           <input type="password" id="signup-confirm-password" required minlength="8">
+          <span id="password-match" style="color: red; display: none;">Passwords do not match</span>
         </div>
         <button type="submit" class="auth-submit">Sign Up</button>
       </form>
@@ -1450,6 +1463,7 @@
         `;
         const playlistsTab = document.querySelector('.nav-menu li[data-tab="playlists"]');
         if (playlistsTab) playlistsTab.remove();
+        setupAuthButtons();
       }
 
       // Render Views
@@ -1595,6 +1609,26 @@
       }
     }
 
+    // Auth Setup
+    function setupAuthButtons() {
+      const signupBtn = document.querySelector('#signup-btn');
+      const loginBtn = document.querySelector('#login-btn');
+      if (signupBtn) {
+        signupBtn.addEventListener('click', () => {
+          loginModal.classList.remove('show');
+          signupModal.classList.add('show');
+          document.querySelector('#signup-email').focus();
+        });
+      }
+      if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+          signupModal.classList.remove('show');
+          loginModal.classList.add('show');
+          document.querySelector('#login-email').focus();
+        });
+      }
+    }
+
     // Event Listeners
     document.addEventListener('DOMContentLoaded', () => {
       updateUI();
@@ -1648,12 +1682,6 @@
       });
 
       // Auth Buttons
-      function setupAuthButtons() {
-        const signupBtn = document.querySelector('#signup-btn');
-        const loginBtn = document.querySelector('#login-btn');
-        if (signupBtn) signupBtn.addEventListener('click', () => { loginModal.style.display = 'none'; signupModal.classList.add('show'); });
-        if (loginBtn) loginBtn.addEventListener('click', () => { signupModal.style.display = 'none'; loginModal.classList.add('show'); });
-      }
       setupAuthButtons();
 
       // Modal Close Buttons
@@ -1667,60 +1695,102 @@
       document.querySelector('#switch-to-signup').addEventListener('click', () => {
         loginModal.classList.remove('show');
         signupModal.classList.add('show');
+        document.querySelector('#signup-email').focus();
       });
       document.querySelector('#switch-to-login').addEventListener('click', () => {
         signupModal.classList.remove('show');
         loginModal.classList.add('show');
+        document.querySelector('#login-email').focus();
       });
 
       // Login Form
       document.querySelector('#login-form').addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = document.querySelector('#login-email').value;
-        const password = document.querySelector('#login-password').value;
-        const errorElement = document.querySelector('#login-error');
-        errorElement.style.display = 'none';
-        errorElement.textContent = '';
-        const user = users.find(u => u.email === email && u.password === password);
-        if (user) {
-          state.user = { email: user.email, username: user.username };
-          localStorage.setItem('currentUserEmail', email);
-          loginModal.classList.remove('show');
-          updateUI();
-        } else {
-          errorElement.textContent = 'Invalid email or password';
-          errorElement.style.display = 'block';
-        }
+        const submitBtn = e.target.querySelector('.auth-submit');
+        submitBtn.textContent = 'Logging in...';
+        submitBtn.disabled = true;
+        setTimeout(() => {
+          const email = document.querySelector('#login-email').value;
+          const password = document.querySelector('#login-password').value;
+          const errorElement = document.querySelector('#login-error');
+          errorElement.style.display = 'none';
+          errorElement.textContent = '';
+          const user = users.find(u => u.email === email && u.password === password);
+          if (user) {
+            state.user = { email: user.email, username: user.username };
+            localStorage.setItem('currentUserEmail', email);
+            loginModal.classList.remove('show');
+            updateUI();
+          } else {
+            errorElement.textContent = 'Invalid email or password';
+            errorElement.style.display = 'block';
+          }
+          submitBtn.textContent = 'Log In';
+          submitBtn.disabled = false;
+        }, 1000);
       });
 
       // Signup Form
       document.querySelector('#signup-form').addEventListener('submit', (e) => {
         e.preventDefault();
-        const email = document.querySelector('#signup-email').value;
-        const username = document.querySelector('#signup-username').value;
+        const submitBtn = e.target.querySelector('.auth-submit');
+        submitBtn.textContent = 'Signing up...';
+        submitBtn.disabled = true;
+        setTimeout(() => {
+          const email = document.querySelector('#signup-email').value;
+          const username = document.querySelector('#signup-username').value;
+          const password = document.querySelector('#signup-password').value;
+          const confirmPassword = document.querySelector('#signup-confirm-password').value;
+          const errorElement = document.querySelector('#signup-error');
+          errorElement.style.display = 'none';
+          errorElement.textContent = '';
+          if (password !== confirmPassword) {
+            errorElement.textContent = 'Passwords do not match';
+            errorElement.style.display = 'block';
+            submitBtn.textContent = 'Sign Up';
+            submitBtn.disabled = false;
+            return;
+          }
+          const existingUser = users.find(u => u.email === email || u.username === username);
+          if (existingUser) {
+            errorElement.textContent = 'Email or username already exists';
+            errorElement.style.display = 'block';
+            submitBtn.textContent = 'Sign Up';
+            submitBtn.disabled = false;
+            return;
+          }
+          const newUser = { email, username, password };
+          users.push(newUser);
+          localStorage.setItem('users', JSON.stringify(users));
+          state.user = { email, username };
+          localStorage.setItem('currentUserEmail', email);
+          signupModal.classList.remove('show');
+          updateUI();
+          submitBtn.textContent = 'Sign Up';
+          submitBtn.disabled = false;
+        }, 1000);
+      });
+
+      // Real-time Password Match Check
+      document.querySelector('#signup-confirm-password').addEventListener('input', (e) => {
         const password = document.querySelector('#signup-password').value;
-        const confirmPassword = document.querySelector('#signup-confirm-password').value;
-        const errorElement = document.querySelector('#signup-error');
-        errorElement.style.display = 'none';
-        errorElement.textContent = '';
+        const confirmPassword = e.target.value;
+        const matchSpan = document.querySelector('#password-match');
         if (password !== confirmPassword) {
-          errorElement.textContent = 'Passwords do not match';
-          errorElement.style.display = 'block';
-          return;
+          matchSpan.style.display = 'block';
+        } else {
+          matchSpan.style.display = 'none';
         }
-        const existingUser = users.find(u => u.email === email || u.username === username);
-        if (existingUser) {
-          errorElement.textContent = 'Email or username already exists';
-          errorElement.style.display = 'block';
-          return;
+      });
+
+      // Escape Key to Close Modals
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const openModal = document.querySelector('.auth-modal.show');
+          if (openModal) {
+            openModal.classList.remove('show');
+          }
         }
-        const newUser = { email, username, password };
-        users.push(newUser);
-        localStorage.setItem('users', JSON.stringify(users));
-        state.user = { email, username };
-        localStorage.setItem('currentUserEmail', email);
-        signupModal.classList.remove('show');
-        updateUI();
       });
 
       // Logout
@@ -1732,7 +1802,6 @@
           state.currentSong = null;
           state.isPlaying = false;
           updateUI();
-          setupAuthButtons();
         }
       });
 
@@ -1762,6 +1831,7 @@
       document.querySelector('#library-view').addEventListener('click', (e) => {
         if (e.target.closest('#login-prompt-btn')) {
           loginModal.classList.add('show');
+          document.querySelector('#login-email').focus();
         }
         if (e.target.closest('.create-playlist-btn')) {
           createPlaylistModal.classList.add('show');
